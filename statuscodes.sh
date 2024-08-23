@@ -38,30 +38,21 @@ fi
 # Create a temporary file to store status codes and URLs
 temp_file=$(mktemp)
 
-# Initialize a counter variable
-count=0
+# Function to process each URL and print status code
+process_url() {
+    local url="$1"
+    local response
 
-# Process each URL and print status code
-while IFS= read -r url; do
-    # Increment the counter variable
-    count=$((count+1))
-
-    # Print the current progress
-    echo "Testing URL $count/$(wc -l < "$url_file")..."
-
-    # Use curl with the -L flag to follow redirects and the -s flag for silent mode
-    # Use the -w flag to print the status code and elapsed time
-    # Use the -o flag to redirect output to /dev/null
-    # Use the -S flag to only show errors and the status code
-    # Use the -m flag to set a timeout of 10 seconds
-    response=$(curl -L -s -o /dev/null -w "%{http_code} - %{time_total}s" -m 10 "$url" 2>/dev/null)
-
-    # Print the status code and URL
+    response=$(curl -L -s -o /dev/null -w "%{http_code} - %{time_total}s" -m 5 "$url" 2>/dev/null)
     echo "$url - Status Code: ${response% - *.??}"
-
-    # Save the status code and URL to the temporary file
     echo "$response $url" >> "$temp_file"
-done < "$url_file"
+}
+
+export -f process_url
+export temp_file
+
+# Process URLs in parallel using xargs
+cat "$url_file" | xargs -n 1 -P 10 -I {} bash -c 'process_url "$@"' _ {}
 
 # Print all status codes
 echo "Showing all status codes:"
